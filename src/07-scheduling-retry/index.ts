@@ -22,6 +22,7 @@ const retrySchedule = Schedule.intersect(exponential, maxRetries)
 
 // --- Simulate a flaky service ---
 
+// Mutable state for demo simplicity. In production, use Ref for effectful mutable state.
 let attempt = 0
 
 const flakyCall = Effect.gen(function* () {

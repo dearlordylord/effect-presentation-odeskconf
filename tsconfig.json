@@ -12,10 +12,7 @@
     "skipLibCheck": true,
     "declaration": true,
     "sourceMap": true,
-    "outDir": "dist",
-    "plugins": [
-      { "name": "@effect/language-service" }
-    ]
+    "outDir": "dist"
   },
   "include": ["src"]
 }

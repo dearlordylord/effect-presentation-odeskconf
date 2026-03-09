@@ -1,4 +1,4 @@
-import { Effect, TestClock, TestContext, Exit } from "effect"
+import { Effect, TestClock, TestContext, Exit, Cause, Option } from "effect"
 import { describe, it, expect } from "vitest"
 import { checkExpiry, type Task } from "./index.js"
 
@@ -29,6 +29,13 @@ describe("checkExpiry", () => {
       program.pipe(Effect.provide(TestContext.TestContext))
     )
     expect(Exit.isFailure(exit)).toBe(true)
+    if (Exit.isFailure(exit)) {
+      const error = Cause.failureOption(exit.cause)
+      expect(Option.isSome(error)).toBe(true)
+      if (Option.isSome(error)) {
+        expect(error.value._tag).toBe("TaskExpiredError")
+      }
+    }
   })
 
   // Advance clock to just under timeout → still valid

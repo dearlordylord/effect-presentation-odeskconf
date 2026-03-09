@@ -11,7 +11,7 @@ const longTask = Effect.gen(function* () {
   yield* Effect.log("Task: completed!") // won't reach this
   return "done"
 }).pipe(
-  Effect.onInterrupt(() =>
+  Effect.onInterrupt((_interruptors) =>
     Effect.log("Task: interrupted! cleaning up resources...")
   )
 )
@@ -36,8 +36,5 @@ const main = Effect.gen(function* () {
 //   Main: sending interrupt...
 //   Task: interrupted! cleaning up resources...
 //   Main: task was interrupted cleanly
-//
-// Key: acquireRelease acquisition is UNINTERRUPTIBLE — resource safety.
-// The interrupt waits for acquire to finish before interrupting.
 
 Effect.runPromise(main)

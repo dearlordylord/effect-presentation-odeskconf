@@ -19,6 +19,8 @@ export class InvalidStatusError extends Schema.TaggedError<InvalidStatusError>()
 ) {}
 
 // --- Service definition: WHAT, not HOW ---
+// Note: Effect.Service is a newer API that colocates tag + default layer.
+// Context.Tag shown here for clarity — it separates interface from implementation.
 
 export class TaskRepository extends Context.Tag("TaskRepository")<
   TaskRepository,

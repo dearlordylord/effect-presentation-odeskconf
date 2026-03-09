@@ -37,11 +37,12 @@ export const checkExpiry = (task: Task): Effect.Effect<Task, TaskExpiredError> =
 // --- Demo with real clock ---
 
 const main = Effect.gen(function* () {
+  const now = yield* Clock.currentTimeMillis
   const task: Task = {
     id: "1",
     title: "Recent task",
     status: "running",
-    createdAt: Date.now() - 5_000, // 5 seconds ago
+    createdAt: now - 5_000, // 5 seconds ago
   }
   const result = yield* checkExpiry(task)
   yield* Effect.log(`Task '${result.title}' is still valid`)

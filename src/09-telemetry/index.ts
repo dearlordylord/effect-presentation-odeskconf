@@ -31,21 +31,24 @@ const op = (
 // processTaskBatch
 // ├── loadConfig
 // ├── connectDatabase
-// ├── processTask("Write docs")
+// ├── processTask["Write docs"]
 // │   ├── validate
-// │   ├── fetchDeps
+// │   ├── fetchDeps["Write docs"]
 // │   │   ├── authenticate
 // │   │   └── queryAPI
 // │   └── persist
-// ├── processTask("Fix bug")
+// ├── processTask["Fix bug"]
 // │   ├── validate
-// │   ├── fetchDeps
+// │   ├── fetchDeps["Fix bug"]
 // │   │   ├── authenticate
 // │   │   └── queryAPI
 // │   └── persist
 // └── notifyResults
-//     ├── email
-//     └── slack  (concurrent with email)
+//     ├── email        ┐
+//     ├── slack        ┘ concurrent
+//     ├── /poll        ┐
+//     ├── /poll        ┤ concurrent
+//     └── /poll        ┘
 
 const authenticate = op("authenticate", 5)
 const queryAPI = op("queryAPI", 15)

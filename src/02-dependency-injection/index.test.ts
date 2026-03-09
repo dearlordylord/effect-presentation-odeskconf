@@ -1,4 +1,4 @@
-import { Effect, Layer, Exit } from "effect"
+import { Effect, Layer, Exit, Cause, Option } from "effect"
 import { describe, it, expect } from "vitest"
 import {
   TaskRepository,
@@ -34,6 +34,13 @@ describe("startTask", () => {
       startTask("999").pipe(Effect.provide(TestTaskRepo))
     )
     expect(Exit.isFailure(exit)).toBe(true)
+    if (Exit.isFailure(exit)) {
+      const error = Cause.failureOption(exit.cause)
+      expect(Option.isSome(error)).toBe(true)
+      if (Option.isSome(error)) {
+        expect(error.value._tag).toBe("TaskNotFoundError")
+      }
+    }
   })
 
   it("fails when task is not pending", async () => {
@@ -46,5 +53,12 @@ describe("startTask", () => {
       startTask("1").pipe(Effect.provide(RunningTaskRepo))
     )
     expect(Exit.isFailure(exit)).toBe(true)
+    if (Exit.isFailure(exit)) {
+      const error = Cause.failureOption(exit.cause)
+      expect(Option.isSome(error)).toBe(true)
+      if (Option.isSome(error)) {
+        expect(error.value._tag).toBe("InvalidStatusError")
+      }
+    }
   })
 })

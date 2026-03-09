@@ -1,7 +1,12 @@
 import { Effect } from "effect"
 
-// --- Structured concurrency: child fibers can't outlive the parent ---
+// --- Fibers: lightweight threads with scope-based lifecycle ---
 // Unlike setInterval or unmanaged Promise.all, no leaked background work.
+//
+// Effect.fork       = child supervised by parent fiber (dies when parent dies)
+//                     — this is "structured concurrency" and usually what you want.
+// Effect.forkScoped = child tied to a local Scope (dies when that scope closes)
+//                     — useful when you need explicit control over fiber lifetime.
 
 const worker = (id: number) =>
   Effect.gen(function* () {
@@ -9,21 +14,24 @@ const worker = (id: number) =>
     yield* Effect.sleep("30 millis")
   }).pipe(
     Effect.forever,
-    Effect.onInterrupt(() => Effect.log(`Worker ${id}: interrupted by parent`))
+    Effect.onInterrupt((_interruptors) => Effect.log(`Worker ${id}: interrupted by parent`))
   )
 
 const structuredDemo = Effect.scoped(
   Effect.gen(function* () {
     yield* Effect.log("=== Structured concurrency ===")
 
-    // forkScoped: child fiber tied to THIS scope — interrupted when scope closes
+    // forkScoped: child fiber tied to THIS scope — interrupted when scope closes.
+    // We use forkScoped here so workers stop before the bounded parallelism demo starts.
+    // In a real app, Effect.fork is usually what you want — children die automatically
+    // with the parent fiber (structured concurrency).
     yield* Effect.forkScoped(worker(1))
     yield* Effect.forkScoped(worker(2))
 
     // Parent lives for 100ms then exits
     yield* Effect.sleep("100 millis")
-    yield* Effect.log("Parent: exiting")
-    // Scope closes here → children are automatically interrupted. They can't leak.
+    yield* Effect.log("Parent: exiting scope")
+    // Scope closes here → forkScoped children are automatically interrupted.
   })
 )
 

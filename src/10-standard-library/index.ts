@@ -46,7 +46,7 @@ import { Effect } from "effect"
 //   import { Array, Record } from "effect"
 //
 //   Array.groupBy(tasks, (t) => t.status)
-//   // => Record<string, Task[]>
+//   // => Record<string, NonEmptyArray<Task>>
 //
 // --- Duration — type-safe time ---
 //
