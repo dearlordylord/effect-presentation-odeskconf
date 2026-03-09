@@ -1,0 +1,39 @@
+{
+  "name": "effect-presentation",
+  "version": "0.0.1",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "10": "tsx src/10-standard-library/index.ts",
+    "11": "tsx src/11-composability/index.ts",
+    "01": "tsx src/01-typed-errors/index.ts",
+    "02": "tsx src/02-dependency-injection/index.ts",
+    "03": "tsx src/03-clocks/index.ts",
+    "04": "tsx src/04-resource-control/index.ts",
+    "05": "tsx src/05-fibers/index.ts",
+    "06": "tsx src/06-interrupts/index.ts",
+    "07": "tsx src/07-scheduling-retry/index.ts",
+    "08": "tsx src/08-queues-pubsub/index.ts",
+    "09": "tsx src/09-telemetry/index.ts",
+    "test": "vitest run",
+    "test:watch": "vitest"
+  },
+  "devDependencies": {
+    "tsx": "^4.19.0",
+    "typescript": "~5.9.3",
+    "vitest": "^3.0.0"
+  },
+  "dependencies": {
+    "@effect/opentelemetry": "^0.42.0",
+    "@effect/platform": "^0.94.5",
+    "@effect/platform-node": "^0.104.1",
+    "@opentelemetry/api": "^1.9",
+    "@opentelemetry/exporter-trace-otlp-http": "^0.57.0",
+    "@opentelemetry/resources": "^1.30.1",
+    "@opentelemetry/sdk-metrics": "^1.30.0",
+    "@opentelemetry/sdk-trace-base": "^1.30.0",
+    "@opentelemetry/sdk-trace-node": "^1.30.0",
+    "@opentelemetry/sdk-trace-web": "^1.30.1",
+    "effect": "^3.19.19"
+  }
+}
