@@ -548,6 +548,12 @@ const NodeSdkLive = NodeSdk.layer(() => ({
 
 ---
 
+## What you see in Grafana
+
+![Grafana trace view](assets/grafana-trace.png)
+
+---
+
 # 10 -- Standard Library
 
 (slide only)
