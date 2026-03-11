@@ -1,17 +1,17 @@
 import { Effect, TestClock, TestContext, Exit, Cause, Option } from "effect"
 import { describe, it, expect } from "vitest"
-import { checkExpiry, type Task } from "./index.js"
+import { assertFresh, type Task } from "./index.js"
 
 // TestClock starts at epoch 0 and ONLY advances via TestClock.adjust.
 // No real time passes. Tests are instant and deterministic.
 
-describe("checkExpiry", () => {
+describe("assertFresh", () => {
   // Task created at time 0, clock at time 0 → not expired
   it("passes for a fresh task", async () => {
     const task: Task = { id: "1", title: "Fresh", status: "running", createdAt: 0 }
 
     const result = await Effect.runPromise(
-      checkExpiry(task).pipe(Effect.provide(TestContext.TestContext))
+      assertFresh(task).pipe(Effect.provide(TestContext.TestContext))
     )
     expect(result.id).toBe("1")
   })
@@ -22,7 +22,7 @@ describe("checkExpiry", () => {
 
     const program = Effect.gen(function* () {
       yield* TestClock.adjust("31 seconds")
-      return yield* checkExpiry(task)
+      return yield* assertFresh(task)
     })
 
     const exit = await Effect.runPromiseExit(
@@ -44,7 +44,7 @@ describe("checkExpiry", () => {
 
     const program = Effect.gen(function* () {
       yield* TestClock.adjust("30 seconds")
-      return yield* checkExpiry(task)
+      return yield* assertFresh(task)
     })
 
     const result = await Effect.runPromise(

@@ -16,9 +16,12 @@
     "08": "tsx src/08-queues-pubsub/index.ts",
     "09": "tsx src/09-telemetry/index.ts",
     "test": "vitest run",
-    "test:watch": "vitest"
+    "test:watch": "vitest",
+    "slides": "marp slides.md -o slides.html",
+    "slides:watch": "marp slides.md -o slides.html --watch"
   },
   "devDependencies": {
+    "@marp-team/marp-cli": "^4.2.3",
     "tsx": "^4.19.0",
     "typescript": "~5.9.3",
     "vitest": "^3.0.0"

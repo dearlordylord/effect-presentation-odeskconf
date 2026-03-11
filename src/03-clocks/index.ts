@@ -24,7 +24,7 @@ export const TASK_TIMEOUT_MS = 30_000 // 30 seconds
 
 // Uses Clock.currentTimeMillis — NOT Date.now()
 // This means tests can control time without real delays.
-export const checkExpiry = (task: Task): Effect.Effect<Task, TaskExpiredError> =>
+export const assertFresh = (task: Task): Effect.Effect<Task, TaskExpiredError> =>
   Effect.gen(function* () {
     const now = yield* Clock.currentTimeMillis
     const elapsed = now - task.createdAt
@@ -44,7 +44,7 @@ const main = Effect.gen(function* () {
     status: "running",
     createdAt: now - 5_000, // 5 seconds ago
   }
-  const result = yield* checkExpiry(task)
+  const result = yield* assertFresh(task)
   yield* Effect.log(`Task '${result.title}' is still valid`)
 })
 

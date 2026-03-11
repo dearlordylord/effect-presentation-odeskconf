@@ -25,7 +25,7 @@ export class InvalidStatusError extends Schema.TaggedError<InvalidStatusError>()
 export class TaskRepository extends Context.Tag("TaskRepository")<
   TaskRepository,
   {
-    readonly findById: (id: string) => Effect.Effect<Task, TaskNotFoundError>
+    readonly fetchById: (id: string) => Effect.Effect<Task, TaskNotFoundError>
     readonly updateStatus: (
       id: string,
       status: Task["status"]
@@ -41,7 +41,7 @@ const tasks = new Map<string, Task>([
 ])
 
 export const InMemoryTaskRepo = Layer.succeed(TaskRepository, {
-  findById: (id) =>
+  fetchById: (id) =>
     Effect.gen(function* () {
       const task = tasks.get(id)
       if (!task) return yield* new TaskNotFoundError({ id })
@@ -65,7 +65,7 @@ export const startTask = (
 ): Effect.Effect<Task, TaskNotFoundError | InvalidStatusError, TaskRepository> =>
   Effect.gen(function* () {
     const repo = yield* TaskRepository
-    const task = yield* repo.findById(id)
+    const task = yield* repo.fetchById(id)
     if (task.status !== "pending") {
       return yield* new InvalidStatusError({
         id,

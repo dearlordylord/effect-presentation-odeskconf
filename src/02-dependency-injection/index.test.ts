@@ -14,7 +14,7 @@ import {
 const mockTask: Task = { id: "1", title: "Test task", status: "pending" }
 
 const TestTaskRepo = Layer.succeed(TaskRepository, {
-  findById: (id) =>
+  fetchById: (id) =>
     id === "1"
       ? Effect.succeed(mockTask)
       : Effect.fail(new TaskNotFoundError({ id })),
@@ -46,7 +46,7 @@ describe("startTask", () => {
   it("fails when task is not pending", async () => {
     const runningTask: Task = { ...mockTask, status: "running" }
     const RunningTaskRepo = Layer.succeed(TaskRepository, {
-      findById: () => Effect.succeed(runningTask),
+      fetchById: () => Effect.succeed(runningTask),
       updateStatus: (_id, status) => Effect.succeed({ ...runningTask, status }),
     })
     const exit = await Effect.runPromiseExit(
