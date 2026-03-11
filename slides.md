@@ -556,7 +556,6 @@ const NodeSdkLive = NodeSdk.layer(() => ({
 
 # 10 -- Standard Library
 
-(slide only)
 
 ---
 
@@ -614,7 +613,6 @@ Also: Match, Order, Equal, Hash, Predicate, Struct
 
 # 11 -- Composability
 
-(slide only)
 
 ---
 
