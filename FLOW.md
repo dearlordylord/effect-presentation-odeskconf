@@ -65,10 +65,10 @@ Open `slides.html` in browser. Navigate with arrow keys, `f` for fullscreen.
    pnpm run 09
    ```
 
-3. Switch to browser, open the Grafana URL from step 1
-   - Go to Explore (compass icon in sidebar)
-   - Select "Tempo" as data source
-   - Click "Search" tab
+3. Switch to browser, open the Grafana URL printed by `docker:otel` (ignore `localhost:3000` in container output — that's the internal port)
+   - Left sidebar -> Explore (compass icon)
+   - Data source dropdown -> select "Tempo"
+   - "Search" tab
    - Service Name: "effect-presentation"
    - Click "Run query"
    - Click on the trace to see the span tree

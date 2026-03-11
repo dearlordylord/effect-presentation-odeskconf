@@ -9,13 +9,19 @@ while lsof -i :"$GRAFANA_PORT" -t >/dev/null 2>&1; do
   GRAFANA_PORT=$((GRAFANA_PORT + 1))
 done
 
-echo "Starting Grafana LGTM..."
-echo "  Grafana UI: http://localhost:${GRAFANA_PORT}"
-echo "  OTLP HTTP:  http://localhost:4318"
-echo "  OTLP gRPC:  http://localhost:4317"
 echo ""
-echo "After running 'pnpm run 09', open:"
-echo "  http://localhost:${GRAFANA_PORT}/explore -> Tempo -> Search"
+echo "============================================"
+echo "  Grafana UI: http://localhost:${GRAFANA_PORT}"
+echo "============================================"
+echo ""
+echo "  (ignore 'localhost:3000' in container output below — that's the internal port)"
+echo ""
+echo "  After 'pnpm run 09', find your traces:"
+echo "    1. Open http://localhost:${GRAFANA_PORT}"
+echo "    2. Left sidebar -> Explore (compass icon)"
+echo "    3. Data source dropdown -> Tempo"
+echo "    4. Search tab -> Service Name: effect-presentation"
+echo "    5. Run query -> click on the trace"
 echo ""
 
 docker run \

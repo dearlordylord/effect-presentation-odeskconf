@@ -532,8 +532,9 @@ pnpm run docker:otel
 # 2. Run the telemetry demo (in another terminal)
 pnpm run 09
 
-# 3. Open Grafana at the URL printed by docker:otel
-#    -> Explore -> Tempo -> Search -> find trace
+# 3. Open the Grafana URL printed by docker:otel
+#    Explore (sidebar) -> data source: Tempo -> Search
+#    -> Service Name: effect-presentation -> Run query
 ```
 
 OTel setup in code:
