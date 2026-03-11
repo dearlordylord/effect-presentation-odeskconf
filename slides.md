@@ -611,37 +611,8 @@ Also: Match, Order, Equal, Hash, Predicate, Struct
 
 ---
 
-# 11 -- Composability
-
-
----
-
-## Everything composes with everything
-
-```typescript
-const a: Effect<User, AuthError, Database>
-const b: Effect<Order, PaymentError, PaymentGateway>
-
-const c = Effect.all([a, b])
-//    ^  Effect<[User, Order],
-//              AuthError | PaymentError,
-//              Database | PaymentGateway>
-```
-
-Errors: union. Requirements: union. Success: tuple.
-
----
-
-## The key insight
-
-Effect gives you one API for things that are usually separate libraries: error handling, retries, concurrency, DI, resource management, observability.
-
-They share one type and compose without glue code.
-
----
-
 # Thanks
 
-All demos: `pnpm run 01` through `pnpm run 11`
+All demos: `pnpm run 01` through `pnpm run 10`
 
 github.com/dearlordylord/effect-presentation-odeskconf
