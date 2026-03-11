@@ -18,7 +18,8 @@
     "test": "vitest run",
     "test:watch": "vitest",
     "slides": "marp slides.md -o slides.html",
-    "slides:watch": "marp slides.md -o slides.html --watch"
+    "slides:watch": "marp slides.md -o slides.html --watch",
+    "docker:otel": "./scripts/otel-docker.sh"
   },
   "devDependencies": {
     "@marp-team/marp-cli": "^4.2.3",

@@ -526,15 +526,14 @@ processTaskBatch
 ## Try it: OTel in Docker
 
 ```bash
-# 1. Start Grafana LGTM (Loki + Grafana + Tempo + Mimir)
-docker run -p 3000:3000 -p 4317:4317 -p 4318:4318 \
-  --rm -it docker.io/grafana/otel-lgtm
+# 1. Start Grafana LGTM (auto-finds free port for Grafana UI)
+pnpm run docker:otel
 
-# 2. Run the telemetry demo
+# 2. Run the telemetry demo (in another terminal)
 pnpm run 09
 
-# 3. Open Grafana
-#    http://localhost:3000 -> Explore -> Tempo -> Search -> find trace
+# 3. Open Grafana at the URL printed by docker:otel
+#    -> Explore -> Tempo -> Search -> find trace
 ```
 
 OTel setup in code:

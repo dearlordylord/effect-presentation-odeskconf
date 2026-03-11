@@ -10,7 +10,7 @@
 ### Setup
 ```bash
 pnpm install
-npx marp slides.md -o slides.html
+pnpm run slides
 ```
 
 ### Pre-pull the Docker image (avoid waiting during the talk)
@@ -38,7 +38,7 @@ Open `slides.html` in browser. Navigate with arrow keys, `f` for fullscreen.
 |---|---|---|
 | 01 -- Typed Errors | `pnpm run 01` | catchTag handling, error in output |
 | 02 -- Dependency Injection | `pnpm run 02` | service wiring, "Started: Write docs" |
-| 02 -- DI tests | `pnpm test` | mock layer, all 6 tests pass |
+| 02 -- DI tests | `pnpm test` | mock repo, all 6 tests pass |
 | 03 -- Clocks | `pnpm run 03` | "Task is still valid" |
 | 03 -- Clock tests | `pnpm test` | TestClock.adjust, instant deterministic tests |
 | 04 -- Resource Control | `pnpm run 04` | acquire/release order in output |
@@ -54,16 +54,18 @@ Open `slides.html` in browser. Navigate with arrow keys, `f` for fullscreen.
 
 1. Start Grafana LGTM in a separate terminal **before** reaching slide 09:
    ```bash
-   docker run -p 3000:3000 -p 4317:4317 -p 4318:4318 --rm -it docker.io/grafana/otel-lgtm
+   pnpm run docker:otel
    ```
-   Wait until you see "The OpenTelemetry collector and the Grafana LGTM stack are up and running" in the output.
+   This auto-finds a free port for Grafana UI (default 3033, increments if busy).
+   Wait until you see "The OpenTelemetry collector and the Grafana LGTM stack are up and running".
+   Note the Grafana URL printed in the output.
 
 2. When you reach the telemetry slides, run:
    ```bash
    pnpm run 09
    ```
 
-3. Switch to browser, open http://localhost:3000
+3. Switch to browser, open the Grafana URL from step 1
    - Go to Explore (compass icon in sidebar)
    - Select "Tempo" as data source
    - Click "Search" tab
@@ -78,5 +80,6 @@ Open `slides.html` in browser. Navigate with arrow keys, `f` for fullscreen.
 ## Troubleshooting
 
 - **Telemetry demo shows no traces**: wait a few seconds after `pnpm run 09` for the batch exporter to flush. Re-run the query in Grafana.
-- **Port conflict on 3000**: Grafana LGTM uses 3000. Kill any other service on that port first.
+- **Port conflict on OTLP ports (4317/4318)**: these are standard OTLP ports and shouldn't be changed (the exporter defaults to 4318). Kill any other OTel collector on those ports.
 - **pnpm run 09 errors**: make sure Docker is running and the LGTM container is up.
+- **Custom Grafana port**: `GRAFANA_PORT=4000 pnpm run docker:otel`

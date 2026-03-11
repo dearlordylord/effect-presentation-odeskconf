@@ -6,10 +6,10 @@ import { OTLPTraceExporter } from "@opentelemetry/exporter-trace-otlp-http"
 // --- Telemetry: just withSpan + annotateCurrentSpan ---
 //
 // Start the OpenTelemetry backend first:
-//   docker run -p 3000:3000 -p 4317:4317 -p 4318:4318 --rm -it docker.io/grafana/otel-lgtm
+//   pnpm run docker:otel
 //
 // Then run: pnpm run 09
-// Then open: http://localhost:3000/explore → select Tempo → Search → find trace
+// Then open: Grafana URL printed by docker:otel → Explore → Tempo → Search
 
 // Helper: a named operation that takes time and produces a span
 const op = (
