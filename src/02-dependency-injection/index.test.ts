@@ -1,4 +1,4 @@
-import { Effect, Layer, Exit, Cause, Option } from "effect"
+import { Effect, Exit, Cause, Option } from "effect"
 import { describe, it, expect } from "vitest"
 import {
   TaskRepository,
@@ -13,7 +13,7 @@ import {
 
 const mockTask: Task = { id: "1", title: "Test task", status: "pending" }
 
-const TestTaskRepo = Layer.succeed(TaskRepository, {
+const testRepo = TaskRepository.of({
   fetchById: (id) =>
     id === "1"
       ? Effect.succeed(mockTask)
@@ -24,14 +24,14 @@ const TestTaskRepo = Layer.succeed(TaskRepository, {
 describe("startTask", () => {
   it("starts a pending task", async () => {
     const result = await Effect.runPromise(
-      startTask("1").pipe(Effect.provide(TestTaskRepo))
+      startTask("1").pipe(Effect.provideService(TaskRepository, testRepo))
     )
     expect(result.status).toBe("running")
   })
 
   it("fails for non-existent task", async () => {
     const exit = await Effect.runPromiseExit(
-      startTask("999").pipe(Effect.provide(TestTaskRepo))
+      startTask("999").pipe(Effect.provideService(TaskRepository, testRepo))
     )
     expect(Exit.isFailure(exit)).toBe(true)
     if (Exit.isFailure(exit)) {
@@ -45,12 +45,12 @@ describe("startTask", () => {
 
   it("fails when task is not pending", async () => {
     const runningTask: Task = { ...mockTask, status: "running" }
-    const RunningTaskRepo = Layer.succeed(TaskRepository, {
+    const runningRepo = TaskRepository.of({
       fetchById: () => Effect.succeed(runningTask),
       updateStatus: (_id, status) => Effect.succeed({ ...runningTask, status }),
     })
     const exit = await Effect.runPromiseExit(
-      startTask("1").pipe(Effect.provide(RunningTaskRepo))
+      startTask("1").pipe(Effect.provideService(TaskRepository, runningRepo))
     )
     expect(Exit.isFailure(exit)).toBe(true)
     if (Exit.isFailure(exit)) {

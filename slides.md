@@ -61,7 +61,7 @@ Errors, dependencies, async, resources, concurrency -- all tracked in the type s
 
 ---
 
-## "I just don't know what went wrong" -- Derpy Hooves
+## "I just don't know what went wrong"
 
 ```typescript
 async function findTask(id: string): Promise<Task> { ... }
@@ -150,49 +150,6 @@ An interface as a first-class value. Implementation comes later.
 
 ---
 
-## Layers form a DAG
-
-```
-         Config
-        /      \
-       v        v
-    Logger --> Database
-```
-
-- `Config` has no deps (leaf node)
-- `Logger` depends on `Config`
-- `Database` depends on `Config` + `Logger`
-- Effect deduplicates shared nodes -- `Config` built once, shared
-
-```typescript
-Layer.provide(DatabaseLive, Layer.merge(ConfigLive, LoggerLive))
-```
-
----
-
-## Implementation as a Layer
-
-```typescript
-const InMemoryTaskRepo = Layer.succeed(TaskRepository, {
-  fetchById: (id) =>
-    Effect.gen(function* () {
-      const task = tasks.get(id)
-      if (!task) return yield* new TaskNotFoundError({ id })
-      return task
-    }),
-  updateStatus: (id, status) =>
-    Effect.gen(function* () {
-      const task = tasks.get(id)
-      if (!task) return yield* new TaskNotFoundError({ id })
-      const updated = { ...task, status }
-      tasks.set(id, updated)
-      return updated
-    }),
-})
-```
-
----
-
 ## Business logic doesn't know the implementation
 
 ```typescript
@@ -213,18 +170,21 @@ Third type parameter: `TaskRepository` is a *requirement*.
 
 ---
 
-## Provide removes the requirement
+## provideService removes the requirement
 
 ```typescript
 const main = startTask("1").pipe(
   Effect.tap((task) => Effect.log(`Started: ${task.title}`)),
-  Effect.provide(InMemoryTaskRepo)
-  // After provide: Effect<Task, TaskNotFoundError | InvalidStatusError>
+  Effect.provideService(TaskRepository, {
+    fetchById: (id) => ...,
+    updateStatus: (id, status) => ...,
+  })
+  // After provideService: Effect<Task, TaskNotFoundError | InvalidStatusError>
   // The TaskRepository requirement is no more -- it's been satisfied.
 )
 ```
 
-Swap `InMemoryTaskRepo` for `PostgresTaskRepo` -- zero business logic changes.
+Swap the implementation for tests or production -- zero business logic changes.
 
 ---
 
@@ -291,37 +251,37 @@ No delays.
 `try/finally` works for sync code. `acquireRelease` works across async, concurrency, and interrupts.
 
 ```typescript
-const DatabaseLive = Layer.scoped(
-  Database,
-  Effect.acquireRelease(
-    // Acquire
-    Effect.gen(function* () {
-      yield* Effect.log("[DB] Connecting...")
-      return { query: (sql) => Effect.log(`[DB] ${sql}`) }
-    }),
-    // Release: always runs -- on success, error, or interrupt
-    () => Effect.log("[DB] Disconnecting")
-  )
+const makeDbConnection = Effect.acquireRelease(
+  // Acquire
+  Effect.gen(function* () {
+    yield* Effect.log("[DB] Connecting...")
+    return { query: (sql) => Effect.log(`[DB] ${sql}`) }
+  }),
+  // Release: always runs -- on success, error, or interrupt
+  () => Effect.log("[DB] Disconnecting")
 )
 ```
 
 ---
 
-## Layer.merge composes resources
+## Effect.scoped manages the lifetime
 
 ```typescript
-const main = processTask.pipe(
-  Effect.provide(Layer.merge(DatabaseLive, StorageLive))
+const main = Effect.scoped(
+  Effect.gen(function* () {
+    const db = yield* makeDbConnection
+    const store = yield* makeFileStore
+    yield* db.query("SELECT * FROM tasks WHERE status = 'pending'")
+    yield* store.write("/output/result.json", '{"status":"done"}')
+    yield* Effect.log("Task processed")
+  })
 )
-
-// Output:
-//   [DB] Connecting...
-//   [FS] Opening file store...
-//   [DB] Executing: SELECT ...
-//   [FS] Writing 17 bytes to ...
-//   Task processed
-//   [FS] Closing file store     <-- released in reverse order
-//   [DB] Disconnecting          <-- always runs
+// [DB] Connecting...
+// [FS] Opening file store...
+// [DB] Executing: SELECT ...
+// Task processed
+// [FS] Closing file store     <-- released in reverse order
+// [DB] Disconnecting          <-- always runs
 ```
 
 Both resources acquire on entry, release on exit -- including on error or interrupt.
@@ -577,12 +537,13 @@ pnpm run 09
 #    http://localhost:3000 -> Explore -> Tempo -> Search -> find trace
 ```
 
-OTel setup in code is just one Layer:
+OTel setup in code:
 ```typescript
 const NodeSdkLive = NodeSdk.layer(() => ({
   resource: { serviceName: "effect-presentation" },
   spanProcessor: new BatchSpanProcessor(new OTLPTraceExporter()),
 }))
+// provide it to your program with Effect.provide(NodeSdkLive)
 ```
 
 ---
@@ -664,8 +625,6 @@ const c = Effect.all([a, b])
 ```
 
 Errors: union. Requirements: union. Success: tuple.
-
-Layers too: `Layer.merge(DatabaseLive, PaymentLive)` merges outputs and requirements.
 
 ---
 

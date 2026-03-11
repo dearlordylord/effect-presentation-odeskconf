@@ -1,4 +1,4 @@
-import { Effect, Context, Layer, Schema } from "effect"
+import { Effect, Context, Schema } from "effect"
 
 // --- Domain (same as 01) ---
 
@@ -18,9 +18,7 @@ export class InvalidStatusError extends Schema.TaggedError<InvalidStatusError>()
   { id: Schema.String, current: Schema.String, expected: Schema.String }
 ) {}
 
-// --- Service definition: WHAT, not HOW ---
-// Note: Effect.Service is a newer API that colocates tag + default layer.
-// Context.Tag shown here for clarity — it separates interface from implementation.
+// --- Service definition: what, not how ---
 
 export class TaskRepository extends Context.Tag("TaskRepository")<
   TaskRepository,
@@ -40,7 +38,7 @@ const tasks = new Map<string, Task>([
   ["2", { id: "2", title: "Fix bug", status: "running" }],
 ])
 
-export const InMemoryTaskRepo = Layer.succeed(TaskRepository, {
+const inMemoryRepo = TaskRepository.of({
   fetchById: (id) =>
     Effect.gen(function* () {
       const task = tasks.get(id)
@@ -58,7 +56,6 @@ export const InMemoryTaskRepo = Layer.succeed(TaskRepository, {
 })
 
 // --- Business logic: depends on TaskRepository, doesn't know the implementation ---
-// Note the third type parameter: TaskRepository is a REQUIREMENT
 
 export const startTask = (
   id: string
@@ -76,13 +73,13 @@ export const startTask = (
     return yield* repo.updateStatus(id, "running")
   })
 
-// --- Wire it up: provide removes the requirement from the type ---
+// --- Wire it up: provideService removes the requirement from the type ---
 
 const main = startTask("1").pipe(
   Effect.tap((task) => Effect.log(`Started: ${task.title}`)),
-  Effect.provide(InMemoryTaskRepo)
-  // After provide: Effect<Task, TaskNotFoundError | InvalidStatusError>
-  // The TaskRepository requirement is gone — it's been satisfied.
+  Effect.provideService(TaskRepository, inMemoryRepo)
+  // After provideService: Effect<Task, TaskNotFoundError | InvalidStatusError>
+  // The TaskRepository requirement is no more — it's been satisfied.
 )
 
 Effect.runPromise(main)
