@@ -561,8 +561,6 @@ const NodeSdkLive = NodeSdk.layer(() => ({
 
 ## The TypeScript std we didn't have
 
-No lodash. No ramda. Everything typed, pipeable, tree-shakeable.
-
 ```typescript
 Option.fromNullable(map.get("key"))
   .pipe(

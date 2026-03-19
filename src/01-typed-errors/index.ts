@@ -50,20 +50,22 @@ const tasks = new Map<string, Task>([
   ["2", { id: "2", title: "Fix bug", status: "running" }],
 ])
 
-// --- Operations: return type tells you EXACTLY what can fail ---
+// --- Operations: return type tells you exactly what can fail ---
 
-export const findTask = (id: string): Effect.Effect<Task, TaskNotFoundError> =>
+// note: no need to write return type explicitly
+export const fetchTask = (id: string): Effect.Effect<Task, TaskNotFoundError> =>
   Effect.gen(function* () {
     const task = tasks.get(id)
     if (!task) return yield* new TaskNotFoundError({ id })
     return task
   })
 
+// note: no need to write return type explicitly
 export const startTask = (
   id: string
 ): Effect.Effect<Task, TaskNotFoundError | InvalidStatusError> =>
   Effect.gen(function* () {
-    const task = yield* findTask(id)
+    const task = yield* fetchTask(id)
     if (task.status !== "pending") {
       return yield* new InvalidStatusError({
         id,
@@ -82,11 +84,11 @@ const main = Effect.gen(function* () {
     Effect.catchTag("InvalidStatusError", (e) =>
       Effect.gen(function* () {
         yield* Effect.log(`Handled: ${e.message}`)
-        return yield* findTask(e.id) // fallback: return current state
+        return yield* fetchTask(e.id) // fallback: return current state
       })
     )
-    // TaskNotFoundError is NOT caught — it stays in the error channel.
-    // The compiler tracks this for you.
+    // TaskNotFoundError is not caught - it stays in the error channel
+    // The compiler tracks this for you
   )
   yield* Effect.log(`Result: ${result.title} (${result.status})`)
 })

@@ -57,6 +57,7 @@ const inMemoryRepo = TaskRepository.of({
 
 // --- Business logic: depends on TaskRepository, doesn't know the implementation ---
 
+// note no need for explicit type
 export const startTask = (
   id: string
 ): Effect.Effect<Task, TaskNotFoundError | InvalidStatusError, TaskRepository> =>
