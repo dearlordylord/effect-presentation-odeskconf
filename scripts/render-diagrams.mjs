@@ -39,10 +39,23 @@ const diagramFiles = (await readdir("diagrams"))
   .filter((file) => file.endsWith(".mmd"))
   .sort()
 
-for (const file of diagramFiles) {
-  const input = join("diagrams", file)
-  const output = join("assets", `${basename(file, ".mmd")}.svg`)
-  const source = await readFile(input, "utf8")
+const lightTheme = {
+  primaryColor: "#f8fafc",
+  primaryTextColor: "#1f2937",
+  primaryBorderColor: "#2563eb",
+  lineColor: "#374151",
+  tertiaryColor: "#ffffff",
+}
+
+const withLightTheme = (source) =>
+  source
+    .replace(/"primaryColor": "#313244"/g, `"primaryColor": "${lightTheme.primaryColor}"`)
+    .replace(/"primaryTextColor": "#cdd6f4"/g, `"primaryTextColor": "${lightTheme.primaryTextColor}"`)
+    .replace(/"primaryBorderColor": "#89b4fa"/g, `"primaryBorderColor": "${lightTheme.primaryBorderColor}"`)
+    .replace(/"lineColor": "#cdd6f4"/g, `"lineColor": "${lightTheme.lineColor}"`)
+    .replace(/"tertiaryColor": "#1e1e2e"/g, `"tertiaryColor": "${lightTheme.tertiaryColor}"`)
+
+const renderDiagram = async ({ input, output, source }) => {
   const encoded = encodeMermaid(source)
   const url = `https://mermaid.ink/svg/${encoded}?bgColor=transparent`
 
@@ -55,4 +68,22 @@ for (const file of diagramFiles) {
   await mkdir(dirname(output), { recursive: true })
   await writeFile(output, svg)
   console.log(`${input} -> ${output}`)
+}
+
+for (const file of diagramFiles) {
+  const input = join("diagrams", file)
+  const source = await readFile(input, "utf8")
+  const name = `${basename(file, ".mmd")}.svg`
+
+  await renderDiagram({
+    input,
+    output: join("assets", name),
+    source,
+  })
+
+  await renderDiagram({
+    input,
+    output: join("assets", "light", name),
+    source: withLightTheme(source),
+  })
 }

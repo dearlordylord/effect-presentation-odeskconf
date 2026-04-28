@@ -21,7 +21,8 @@
     "bench:match": "tsx benchmarks/match.ts",
     "bench": "pnpm run bench:match",
     "diagrams": "node scripts/render-diagrams.mjs",
-    "slides": "pnpm run diagrams && mkdir -p dist/assets && cp assets/* dist/assets/ && marp --no-stdin --allow-local-files slides.md -o dist/index.html && marp --no-stdin --allow-local-files slides.md -o slides.html",
+    "slides:light-source": "node scripts/build-light-slides.mjs",
+    "slides": "pnpm run diagrams && pnpm run slides:light-source && mkdir -p dist/assets && cp -R assets/* dist/assets/ && marp --no-stdin --allow-local-files slides.md -o dist/index.html && mkdir -p dist/light && marp --no-stdin --allow-local-files .generated/slides-light.md -o dist/light/index.html && marp --no-stdin --allow-local-files slides.md -o slides.html",
     "slides:watch": "marp slides.md -o slides.html --watch",
     "docker:otel": "./scripts/otel-docker.sh"
   },
