@@ -843,3 +843,7 @@ ingestBatch:
 ---
 
 # Thanks
+
+- [effect.website/docs](https://effect.website/docs)
+- [effect.solutions](https://www.effect.solutions/)
+- [youtube.com/@effect-ts](https://www.youtube.com/@effect-ts)
