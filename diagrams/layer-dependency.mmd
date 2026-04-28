@@ -1,0 +1,32 @@
+%%{
+  init: {
+    "theme": "base",
+    "themeVariables": {
+      "background": "transparent",
+      "primaryColor": "#313244",
+      "primaryTextColor": "#cdd6f4",
+      "primaryBorderColor": "#89b4fa",
+      "lineColor": "#cdd6f4",
+      "tertiaryColor": "#1e1e2e"
+    },
+    "flowchart": {
+      "nodeSpacing": 35,
+      "rankSpacing": 45
+    }
+  }
+}%%
+flowchart LR
+  Config[Config]
+  Logger[Logger]
+  HttpClient[HTTP client]
+  Database[Database]
+  Repository[Repository]
+  App[App]
+
+  Config --> Logger
+  Config --> Database
+  Config --> HttpClient
+  Logger --> Database
+  Database --> Repository
+  Repository --> App
+  HttpClient --> App

@@ -1,0 +1,27 @@
+%%{
+  init: {
+    "theme": "base",
+    "themeVariables": {
+      "background": "transparent",
+      "primaryColor": "#313244",
+      "primaryTextColor": "#cdd6f4",
+      "primaryBorderColor": "#89b4fa",
+      "lineColor": "#cdd6f4",
+      "tertiaryColor": "#1e1e2e"
+    },
+    "flowchart": {
+      "nodeSpacing": 28,
+      "rankSpacing": 42
+    }
+  }
+}%%
+flowchart TD
+  Program["same program"]
+
+  Prod["<div style='text-align:left; padding:0 12px; min-width:125px;'><b>prod app</b><hr/>- HttpClient<br/>- ExternalAPI<br/>- Telemetry<br/>- LLM<br/>- Database<br/>- Cache</div>"]
+  Staging["<div style='text-align:left; padding:0 12px; min-width:145px;'><b>staging app</b><hr/>- HttpClient<br/>- ExternalAPI<br/>- Telemetry<br/>- sandbox LLM<br/>- staging DB<br/>- staging cache</div>"]
+  Test["<div style='text-align:left; padding:0 12px; min-width:125px;'><b>test app</b><hr/>- in-memory<br/>- fake APIs<br/>- disabled<br/>- fake LLM<br/>- in-memory<br/>- in-memory</div>"]
+
+  Prod --> Program
+  Staging --> Program
+  Test --> Program

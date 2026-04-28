@@ -45,7 +45,6 @@ Open `slides.html` in browser. Navigate with arrow keys, `f` for fullscreen.
 | 05 -- Fibers | `pnpm run 05` | workers ticking, then interrupted, then bounded parallelism |
 | 06 -- Interrupts | `pnpm run 06` | interrupt mid-task, cleanup runs |
 | 07 -- Scheduling & Retry | `pnpm run 07` | 3 attempts, then success |
-| 08 -- Queues | `pnpm run 08` | queue backpressure demo |
 | 09 -- Telemetry | see below | trace tree in Grafana |
 | 10 -- Standard Library | (slide only) | |
 | 11 -- Composability | (slide only) | |

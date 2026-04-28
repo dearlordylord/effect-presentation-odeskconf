@@ -20,7 +20,8 @@
     "test:watch": "vitest",
     "bench:match": "tsx benchmarks/match.ts",
     "bench": "pnpm run bench:match",
-    "slides": "mkdir -p dist && marp --no-stdin --allow-local-files slides.md -o dist/index.html",
+    "diagrams": "node scripts/render-diagrams.mjs",
+    "slides": "pnpm run diagrams && mkdir -p dist/assets && cp assets/* dist/assets/ && marp --no-stdin --allow-local-files slides.md -o dist/index.html && marp --no-stdin --allow-local-files slides.md -o slides.html",
     "slides:watch": "marp slides.md -o slides.html --watch",
     "docker:otel": "./scripts/otel-docker.sh"
   },

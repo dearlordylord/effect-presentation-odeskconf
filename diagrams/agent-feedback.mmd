@@ -1,0 +1,25 @@
+%%{
+  init: {
+    "theme": "base",
+    "themeVariables": {
+      "background": "transparent",
+      "primaryColor": "#313244",
+      "primaryTextColor": "#cdd6f4",
+      "primaryBorderColor": "#89b4fa",
+      "lineColor": "#cdd6f4",
+      "tertiaryColor": "#1e1e2e"
+    },
+    "flowchart": {
+      "nodeSpacing": 30,
+      "rankSpacing": 45
+    }
+  }
+}%%
+flowchart LR
+  Shared["<div style='text-align:left; padding:0 12px; min-width:140px;'><b>shared staging</b><hr/>- real time<br/>- shared state</div>"]
+  Serial["<div style='text-align:left; padding:0 12px; min-width:140px;'><b>serial feedback</b><hr/>- slower<br/>- flaky</div>"]
+  Worktrees["<div style='text-align:left; padding:0 12px; min-width:180px;'><b>worktrees A / B / C</b><hr/>- test layer<br/>- TestClock</div>"]
+  Parallel["<div style='text-align:left; padding:0 12px; min-width:190px;'><b>parallel feedback</b><hr/>- isolated state<br/>- deterministic time</div>"]
+
+  Shared --> Serial
+  Worktrees --> Parallel
