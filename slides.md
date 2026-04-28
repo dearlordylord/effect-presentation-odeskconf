@@ -24,68 +24,306 @@ style: |
   strong { color: #f9e2af; }
   em { color: #cba6f7; }
   blockquote { border-left: 4px solid #89b4fa; padding-left: 1em; color: #a6adc8; }
-  .rainbow {
-    background: linear-gradient(90deg, red, orange, yellow, green, blue, indigo, violet);
-    -webkit-background-clip: text;
-    -webkit-text-fill-color: transparent;
+  .small { font-size: 0.78em; }
+  .muted { color: #a6adc8; }
+  .skip { color: #fab387; font-size: 0.76em; }
+  .cols {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 1.2rem;
+  }
+  .three {
+    display: grid;
+    grid-template-columns: 1fr 1fr 1fr;
+    gap: 0.8rem;
   }
 ---
 
 # Effect-TS
 
-### The missing standard library for TypeScript
+### The missing typescript standard library
 
-The production TS framework she tells you not to worry about
+- error handling
+- dependency injection
+- structured concurrency
+- resource management
+- numerous other QOL features
+- all that composable with each other
 
 ---
 
-## What is Effect?
-
-A **type-level runtime** for TypeScript:
+## Effect?
 
 ```
 Effect<Success, Error, Requirements>
           |        |         |
-          |        |         +-- What services does this need?
-          |        +------------ What typed errors can occur?
-          +---------------------- What does it produce?
+          |        |         +-- what this code needs 
+          |        +------------ expected errors it can produce
+          +---------------------- happy path value
 ```
 
-Errors, dependencies, async, resources, concurrency -- all tracked in the type system.
-
----
-
-# 01 -- Typed Errors
-
-`pnpm run 01` | `src/01-typed-errors/index.ts`
-
----
-
-## "I just don't know what went wrong"
+- description of work
+- typically runs at program edge
 
 ```typescript
-async function findTask(id: string): Promise<Task> { ... }
-async function startTask(id: string): Promise<Task> { ... }
+Effect.runPromise(program)
 ```
 
-What errors can these throw? The type doesn't say.
+- can be seen as `(rs: Requirements) => Promise<() => {error: Error} | {success: Success}>`
 
 ---
-
-## Typed Errors with Effect
-
-Errors are part of the type:
 
 ```typescript
-findTask:  (id: string) => Effect<Task, TaskNotFoundError>
-startTask: (id: string) => Effect<Task, TaskNotFoundError | InvalidStatusError>
+// plain ts example
+async function firstIssueTitle(projectId: string): Promise<string> {
+  const response = await fetch(`/projects/${projectId}/issues`)
+  const data = await response.json()
+  return data.items[0].title
+}
 ```
 
-The compiler forces you to handle them.
 
 ---
 
-## Schema.TaggedError -- discriminated error classes
+## What do callers see?
+
+Plain TS:
+
+```typescript
+firstIssueTitle:
+  (projectId: string) => Promise<string>
+```
+
+Effect:
+
+```typescript
+firstIssueTitle:
+  (projectId: ProjectId) =>
+    Effect<string, HttpClientError | ParseError | NoIssuesFound, HttpClient>
+```
+
+- `Promise<string>`: success shape only
+- `Effect<string, HttpClientError | ParseError | NoIssuesFound, HttpClient>`: success + failure + requirement
+
+---
+
+## Where did the cognitive load go?
+
+```typescript
+async function firstIssueTitle(projectId: string): Promise<string> {
+  const response = await fetch(`/projects/${projectId}/issues`)
+  const data = await response.json()
+  return data.items[0].title
+}
+```
+
+- HTTP can fail
+- JSON may not match the expected shape
+- `items` may be missing or empty
+- `title` may not be a string
+
+
+---
+
+## Rewritten: setup
+
+```typescript
+const ProjectId = Schema.String.pipe(Schema.brand("ProjectId"))
+type ProjectId = typeof ProjectId.Type
+
+const ProjectIssues = Schema.Struct({
+  items: Schema.Array(Schema.Struct({
+    title: Schema.String,
+  })),
+})
+
+class NoIssuesFound extends Schema.TaggedError<NoIssuesFound>()(
+  "NoIssuesFound",
+  { projectId: ProjectId }
+) {}
+```
+
+---
+
+## Rewritten
+
+```typescript
+const firstIssueTitle =
+  (projectId: ProjectId) =>
+    Effect.gen(function* () {
+      const response =
+        yield* HttpClient.get(`/projects/${projectId}/issues`)
+
+      yield* HttpClientResponse.filterStatusOk(response)
+
+      const data =
+        yield* HttpClientResponse.schemaBodyJson(ProjectIssues)(response)
+
+      const first = data.items[0]
+      if (!first) return yield* Effect.fail(new NoIssuesFound({ projectId }))
+
+      return first.title
+    })
+
+// Effect<string, HttpClientError | ParseError | NoIssuesFound, HttpClient>
+```
+
+---
+
+## Bigger example: ingestion in TS
+
+```typescript
+async function ingestBatch(urls: string[]): Promise<IngestSummary> {
+  const pages = await Promise.all(
+    urls.map((url) => fetch(url).then((r) => r.text()))
+  )
+
+  const records = pages.flatMap(extractRecords)
+  await saveRecords(records)
+  console.log(`ingested: ${records.length}`)
+  return summarize(records)
+}
+```
+
+- retry?
+- concurrency limit?
+- validation?
+- partial failure?
+- persistence errors?
+- trace?
+- cancellation?
+- timeout?
+
+---
+
+## Bigger example: TS with those concerns
+
+<div class="small">
+
+```typescript
+async function ingestBatch(urls: string[], signal: AbortSignal): Promise<IngestResult> {
+  const timeout = AbortSignal.timeout(10_000)
+  const combined = AbortSignal.any([signal, timeout])
+  const span = tracer.startSpan("ingestBatch")
+  try {
+    const pages = await pLimit(8).map(
+      urls,
+      (url) => retry(() => fetchText(url, combined), 3)
+    )
+
+    const parsed = SourceRecords.safeParse(pages.flatMap(extractRecords))
+    if (!parsed.success) return { ok: false, error: "InvalidRecords" }
+    combined.throwIfAborted()
+
+    await saveRecords(parsed.data, combined)
+    console.log(`ingested: ${parsed.data.length}`)
+    span.setStatus({ code: SpanStatusCode.OK })
+    return { ok: true, summary: summarize(parsed.data) }
+  } catch (error) {
+    span.recordException(error)
+    return { ok: false, error: classify(error) }
+  } finally {
+    span.end()
+  }
+}
+```
+
+</div>
+
+---
+
+## Bigger example: ingestion in Effect
+
+```typescript
+const retryPolicy =
+  Schedule.exponential(Duration.millis(100)).pipe(
+    Schedule.compose(Schedule.recurs(3))
+  )
+
+const ingestBatch = (urls: ReadonlyArray<SourceUrl>) =>
+  Effect.gen(function* () {
+    const pages = yield* Effect.all(
+      urls.map((url) => fetchText(url).pipe(
+        Effect.retry(retryPolicy)
+      )),
+      { concurrency: 8 }
+    )
+
+    const records = yield* Schema.decodeUnknown(SourceRecords)(
+      pages.flatMap(extractRecords)
+    )
+    yield* saveRecords(records)
+    return summarize(records)
+  }).pipe(
+    Effect.timeoutFail({
+      duration: Duration.seconds(10),
+      onTimeout: () => new IngestError({ reason: "Timeout" }),
+    }),
+    Effect.tap((summary) => Effect.logInfo(`ingested: ${summary.count}`)),
+    Effect.withSpan("ingestBatch")
+  )
+```
+
+---
+
+## Bigger example: caller view
+
+```typescript
+ingestBatch:
+  (urls: ReadonlyArray<SourceUrl>) =>
+    Effect<
+      IngestSummary,
+      HttpError | ParseError | DbError | IngestError,
+      HttpClient | RecordRepository
+    >
+```
+
+---
+
+# Problem 1
+
+## "What can this throw?"
+
+`pnpm run 01`
+
+---
+
+## The classic code hides the contract
+
+```typescript
+async function fetchTask(id: string): Promise<Task> {
+  const row = await db.get(id)
+  if (!row) throw new Error("not found")
+  return row
+}
+
+async function startTask(id: string): Promise<Task> {
+  const task = await fetchTask(id)
+  if (task.status !== "pending") throw new Error("bad status")
+  return db.update(id, { status: "running" })
+}
+```
+
+- visible: `Promise<Task>`
+- hidden: `not found`
+- hidden: `bad status`
+
+---
+
+## Effect puts failures in the type
+
+```typescript
+fetchTask:
+  (id: string) => Effect<Task, TaskNotFoundError>
+
+startTask:
+  (id: string) =>
+    Effect<Task, TaskNotFoundError | InvalidStatusError>
+```
+
+---
+
+## Errors are domain values
 
 ```typescript
 class TaskNotFoundError extends Schema.TaggedError<TaskNotFoundError>()(
@@ -96,239 +334,419 @@ class TaskNotFoundError extends Schema.TaggedError<TaskNotFoundError>()(
     return `Task '${this.id}' not found`
   }
 }
-
-class InvalidStatusError extends Schema.TaggedError<InvalidStatusError>()(
-  "InvalidStatusError",
-  { id: Schema.String, current: Schema.String, expected: Schema.String }
-) {}
 ```
 
 ---
 
-## Selective error handling with catchTag
+## Handle one problem, leave the rest visible
 
 ```typescript
-const result = yield* startTask("2").pipe(
-  Effect.catchTag("InvalidStatusError", (e) =>
-    Effect.gen(function* () {
-      yield* Effect.log(`Handled: ${e.message}`)
-      return yield* findTask(e.id)
-    })
+const result = yield* startTask("missing").pipe(
+  Effect.catchTag("TaskNotFoundError", (e) =>
+    createTask({ id: e.id, title: "Untitled" })
   )
-  // TaskNotFoundError is not caught -- stays in the error channel.
 )
-// startTask("2")                            => Effect<Task, TaskNotFoundError | InvalidStatusError>
-// .pipe(catchTag("InvalidStatusError", ...)) => Effect<Task, TaskNotFoundError>
-//                                                             ^^^^^^^^^^^^^^^^
-//                                          InvalidStatusError removed from the union
-// result (after yield*)                     => Task
+
+// Before: Effect<Task, TaskNotFoundError | InvalidStatusError>
+// After:  Effect<Task, InvalidStatusError>
 ```
 
----
-
-# 02 -- Dependency Injection
-
-`pnpm run 02` | `src/02-dependency-injection/index.ts`
+- remaining error: `InvalidStatusError`
 
 ---
 
-## Service definition: what, not how
+# Problem 2
+
+## "My tests need a real service"
+
+`pnpm run 02` | `pnpm test`
+
+---
+
+## The pain
+
+- start a database
+- seed it in the correct order
+- configure a fake API key
+- avoid conflicting ports
+- clean up after a failed run
+- hope nobody else changed staging state
+- how to run many worktrees coding agent harnesses in parallel?
+
+---
+
+## Define what you need, not where it comes from
 
 ```typescript
+type TaskId = string
+type TaskStatus = "pending" | "running" | "done" | "failed"
+
 class TaskRepository extends Context.Tag("TaskRepository")<
   TaskRepository,
   {
-    readonly fetchById: (id: string) => Effect<Task, TaskNotFoundError>
-    readonly updateStatus: (
-      id: string, status: Task["status"]
-    ) => Effect<Task, TaskNotFoundError>
+    readonly fetchById:
+      (id: TaskId) => Effect<Task, TaskNotFoundError>
+    readonly updateStatus:
+      (id: TaskId, status: TaskStatus) =>
+        Effect<Task, TaskNotFoundError>
   }
 >() {}
 ```
 
-An interface as a first-class value. Implementation comes later.
+- interface as value
 
 ---
 
-## Business logic doesn't know the implementation
+## Business logic asks for the service
 
 ```typescript
-const startTask = (id: string) =>
-  //  ^? Effect<Task, TaskNotFoundError | InvalidStatusError, TaskRepository>
-  //     inferred -- you never write this annotation
+const startTask = (id: TaskId) =>
+  // Effect<Task, TaskNotFoundError | InvalidStatusError, TaskRepository>
   Effect.gen(function* () {
-    const repo = yield* TaskRepository  // "give me the repo"
+    const repo = yield* TaskRepository
     const task = yield* repo.fetchById(id)
+
     if (task.status !== "pending") {
-      return yield* new InvalidStatusError({ ... })
+      return yield* Effect.fail(new InvalidStatusError({
+        id,
+        current: task.status,
+        expected: "pending",
+      }))
     }
+
     return yield* repo.updateStatus(id, "running")
   })
 ```
 
-Third type parameter: `TaskRepository` is a *requirement*.
+- no constructor plumbing
+- no global singleton
+- no hidden import
 
 ---
 
-## provideService removes the requirement
+## Provide the implementation at the edge
 
 ```typescript
 const main = startTask("1").pipe(
   Effect.tap((task) => Effect.log(`Started: ${task.title}`)),
-  Effect.provideService(TaskRepository, {
-    fetchById: (id) => ...,
-    updateStatus: (id, status) => ...,
-  })
-  // After provideService: Effect<Task, TaskNotFoundError | InvalidStatusError>
-  // The TaskRepository requirement is no more -- it's been satisfied.
+  Effect.provideService(TaskRepository, inMemoryRepo)
 )
 ```
 
-Swap the implementation for tests or production -- zero business logic changes.
+- before: requires `TaskRepository`
+- after: requirement satisfied
 
 ---
 
-# 03 -- Testable Clocks
-
-`pnpm run 03` | `pnpm test` | `src/03-clocks/index.ts`
-
----
-
-## Date.now() is untestable
+## Layer: package the implementation
 
 ```typescript
-// How do you test code that depends on "now"?
-// Mock Date.now()? Monkey-patch globals? jest.useFakeTimers()?
+const TaskRepositoryTest =
+  Layer.succeed(TaskRepository, testRepo)
+
+const result = startTask("1").pipe(
+  Effect.provide(TaskRepositoryTest)
+)
 ```
 
-Effect's `Clock` service is <span class="rainbow">automatically replaced</span> by `TestClock` in tests.
+- one service: `provideService`
+- app graph: `Layer`
 
 ---
 
-## Clock.currentTimeMillis instead of Date.now()
+## Layer dependency graph
+
+```mermaid
+flowchart TD
+  ConfigLayer[Config layer]
+  LoggerLayer[Logger layer]
+  HttpClientLayer[HTTP client layer]
+  DatabaseLayer[Database layer]
+  RepositoryLayer[Repository layer]
+  AppLayer[App layer]
+
+  ConfigLayer --> LoggerLayer
+  ConfigLayer --> DatabaseLayer
+  ConfigLayer --> HttpClientLayer
+  LoggerLayer --> DatabaseLayer
+  DatabaseLayer --> RepositoryLayer
+  HttpClientLayer --> AppLayer
+  RepositoryLayer --> AppLayer
+```
+
+- `Effect.provide(AppLayer)`
+
+---
+
+## Swappable layer combinations
+
+```
+                    same program
+                         |
+      +----------+-------+-------+----------+
+      |          |               |          |
+   prod app   staging app      local app   test app
+      |          |               |          |
+HttpClient  HttpClient      in-memory   in-memory
+ExternalAPI ExternalAPI     fake APIs    fake APIs
+Telemetry   Telemetry       console     disabled
+LLM         sandbox LLM     fake LLM    fake LLM
+Database    staging DB      SQLite      in-memory
+Cache       staging cache   local cache in-memory
+```
+
+- any service can move independently
+- production service + fake LLM
+- real HTTP + in-memory database
+- disabled telemetry + real cache
+
+---
+
+## Plain TS mock
 
 ```typescript
-const assertFresh = (task: Task): Effect<Task, TaskExpiredError> =>
+jest.mock("./TaskRepository", () => ({
+  fetchById: jest.fn(),
+  updateStatus: jest.fn(),
+}))
+
+beforeEach(() => {
+  jest.resetAllMocks()
+  mocked(fetchById).mockResolvedValue(mockTask)
+  mocked(updateStatus).mockResolvedValue({ ...mockTask, status: "running" })
+})
+```
+
+---
+
+## Effect test implementation
+
+```typescript
+const testRepo = TaskRepository.of({
+  fetchById: (id) =>
+    id === "1"
+      ? Effect.succeed(mockTask)
+      : Effect.fail(new TaskNotFoundError({ id })),
+
+  updateStatus: (_id, status) =>
+    Effect.succeed({ ...mockTask, status }),
+})
+```
+
+---
+
+## This is the bridge to parallel work
+
+```
+shared staging
+      |
+      v
+serial feedback loop
+
+worktree A + isolated in-memory state + test layer
+worktree B + isolated in-memory state + test layer
+worktree C + isolated in-memory state + test layer
+      |
+      v
+parallel feedback loops
+```
+
+- every worktree can provide its own in-memory repository
+- same fixtures, isolated state
+- more feature work can get fast local feedback
+
+---
+
+# Problem 3
+
+## "Time made my test flaky"
+
+`pnpm run 03` | `pnpm test`
+
+---
+
+## Date.now() is a global dependency
+
+```typescript
+function assertFresh(task: Task): Task {
+  const elapsed = Date.now() - task.createdAt
+  if (elapsed > 30_000) throw new Error("expired")
+  return task
+}
+```
+
+- global dependency
+- patch globals
+- fake timers
+- real waiting
+
+---
+
+## Clock.currentTimeMillis
+
+```typescript
+const assertFresh = (task: Task) =>
   Effect.gen(function* () {
-    const now = yield* Clock.currentTimeMillis  // not Date.now()
+    const now = yield* Clock.currentTimeMillis
     const elapsed = now - task.createdAt
+
     if (elapsed > TASK_TIMEOUT_MS) {
-      return yield* new TaskExpiredError({ id: task.id, elapsed })
+      return yield* Effect.fail(new TaskExpiredError({ id: task.id, elapsed }))
     }
+
     return task
   })
 ```
 
+- `Clock` -> `TestClock`
+- `Random` -> seeded / controlled random
+- time / sleeps / timeouts
+- random IDs / sampling / jitter
+
 ---
 
-## Deterministic tests with TestClock
+## No real waiting
 
 ```typescript
 it("expires after 30 seconds", () =>
   Effect.gen(function* () {
-    const task = { id: "1", createdAt: 0, ... }
-    yield* TestClock.adjust("31 seconds")  // instant!
-    const result = yield* Effect.exit(assertFresh(task))
-    // assert error._tag === "TaskExpiredError"
+    const task: Task = {
+      id: "1",
+      title: "Old task",
+      status: "running",
+      createdAt: 0,
+    }
+
+    yield* TestClock.adjust("31 seconds")
+
+    const exit = yield* Effect.exit(assertFresh(task))
+    expect(Exit.isFailure(exit)).toBe(true)
   }).pipe(
     Effect.provide(TestContext.TestContext),
     Effect.runPromise
   ))
 ```
 
-No delays.
+- virtual time
+- no wall-clock wait
 
 ---
 
-# 04 -- Resource Control
-
-`pnpm run 04` | `src/04-resource-control/index.ts`
+# Core story complete
 
 ---
 
-## Resources: acquire/release guarantees cleanup
-
-`try/finally` works for sync code. `acquireRelease` works across async, concurrency, and interrupts.
+## One model, three wins
 
 ```typescript
-const makeDbConnection = Effect.acquireRelease(
-  // Acquire
-  Effect.gen(function* () {
-    yield* Effect.log("[DB] Connecting...")
-    return { query: (sql) => Effect.log(`[DB] ${sql}`) }
-  }),
-  // Release: always runs -- on success, error, or interrupt
-  () => Effect.log("[DB] Disconnecting")
+const program = startTask("1").pipe(
+  Effect.provideService(TaskRepository, testRepo)
 )
 ```
 
+- failures are named in the type
+- dependencies are named in the type
+- tests provide data and services directly
+
 ---
 
-## Effect.scoped manages the lifetime
+# Problem 4
+
+## "Cleanup worked until async got complicated"
+
+`pnpm run 04` | `pnpm run 06`
+
+---
+
+## Plain TS resource lifetime
+
+```typescript
+async function processTask(signal: AbortSignal) {
+  const db = await connectDb()
+  const store = await openFileStore()
+
+  try {
+    signal.throwIfAborted()
+    await db.query("SELECT * FROM tasks")
+    signal.throwIfAborted()
+    await store.write("/output/result.json", "{}")
+  } finally {
+    await store.close()
+    await db.close()
+  }
+}
+```
+
+- cleanup is local
+- cancellation is manual
+- every async boundary needs attention
+
+---
+
+## Resource lifetime should be explicit
+
+```typescript
+const makeDbConnection = Effect.acquireRelease(
+  Effect.gen(function* () {
+    // call whatever DB connection mechanics
+    return { query: (sql) => Effect.log(`[DB] ${sql}`) }
+  }),
+  (_db) => Effect.sync(() => {
+    // call whatever DB disconnection mechanics
+  })
+)
+```
+
+- release on success
+- release on failure
+- release on interruption
+
+---
+
+## Scopes
 
 ```typescript
 const main = Effect.scoped(
   Effect.gen(function* () {
     const db = yield* makeDbConnection
     const store = yield* makeFileStore
-    yield* db.query("SELECT * FROM tasks WHERE status = 'pending'")
-    yield* store.write("/output/result.json", '{"status":"done"}')
-    yield* Effect.log("Task processed")
+
+    yield* db.query("SELECT * FROM tasks")
+    yield* store.write("/output/result.json", "{}")
   })
 )
-// [DB] Connecting...
-// [FS] Opening file store...
-// [DB] Executing: SELECT ...
-// Task processed
-// [FS] Closing file store     <-- released in reverse order
-// [DB] Disconnecting          <-- always runs
 ```
 
-Both resources acquire on entry, release on exit -- including on error or interrupt.
+- acquire on scope entry
+- release on scope exit
+- reverse release order
 
 ---
 
-# 05 -- Fibers
-
-`pnpm run 05` | `src/05-fibers/index.ts`
-
----
-
-## Lightweight threads with structured concurrency
-
-```
-Effect.fork = child fiber supervised by parent
-              (interrupted when parent completes)
-```
-
-Child fibers are interrupted when parent completes.
-
-`Effect.forkScoped`, `Effect.forkDaemon` exist for when you need different lifetimes.
-
----
-
-## ensuring vs onInterrupt
+## Effect cancellation is part of the runtime
 
 ```typescript
-const worker = (id: number) =>
-  Effect.gen(function* () {
-    yield* Effect.log(`Worker ${id}: tick`)
-    yield* Effect.sleep("30 millis")
-  }).pipe(
-    Effect.forever,
-    // ensuring: runs on success, failure, AND interrupt
-    Effect.ensuring(Effect.log(`Worker ${id}: finalized`)),
-    // onInterrupt: runs ONLY on interrupt
-    Effect.onInterrupt(() => Effect.log(`Worker ${id}: was interrupted`))
+const longTask = Effect.gen(function* () {
+  for (let i = 1; i <= 5; i++) {
+    yield* Effect.log(`Task: step ${i}/5`)
+    yield* Effect.sleep("300 millis")
+  }
+}).pipe(
+  Effect.onInterrupt(() =>
+    Effect.log("Task: interrupted! releasing connections...")
   )
-
-const demo = Effect.gen(function* () {
-  yield* Effect.fork(worker(1))
-  yield* Effect.fork(worker(2))
-  yield* Effect.sleep("100 millis")
-  // parent completes -> child fibers interrupted
-})
+)
 ```
+
+- cooperative interruption
+
+---
+
+# Problem 5
+
+## Unbounded parallel work
+
+`pnpm run 05` | `pnpm run 07` | `pnpm run 08`
 
 ---
 
@@ -343,152 +761,22 @@ const results = yield* Effect.all(
       return id
     })
   ),
-  { concurrency: 3 }  // at most 3 at a time
+  { concurrency: 3 }
 )
 ```
 
-`concurrency` option controls max parallel fibers.
+- `Promise.all` shape
+- runtime concurrency limit
 
 ---
 
-# 06 -- Interrupts
+## Composable observability
 
-`pnpm run 06` | `src/06-interrupts/index.ts`
-
----
-
-## Cancellation in plain TypeScript
-
-```typescript
-const controller = new AbortController()
-
-async function fetchData(signal: AbortSignal) {
-  const resp = await fetch(url, { signal })   // ok, fetch supports it
-  const parsed = await parseResponse(resp)    // doesn't accept signal
-  await db.save(parsed)                       // doesn't accept signal either
-  // if controller.abort() called during parseResponse or db.save,
-  // nothing happens -- those operations don't know about signals
-}
-```
-
-Manual signal threading. Libraries that don't support it. No propagation.
+`pnpm run 09`
 
 ---
 
-## In Effect: every yield* is interruptible
-
-```typescript
-const longTask = Effect.gen(function* () {
-  for (let i = 1; i <= 5; i++) {
-    yield* Effect.log(`Task: step ${i}/5`)
-    yield* Effect.sleep("300 millis")  // interruptible
-  }
-}).pipe(
-  Effect.onInterrupt(() =>
-    Effect.log("Task: interrupted! releasing connections...")
-  )
-)
-
-const main = Effect.gen(function* () {
-  const fiber = yield* Effect.fork(longTask)
-  yield* Effect.sleep("800 millis")
-  yield* Fiber.interrupt(fiber)  // cooperative cancel
-  yield* Effect.log("Main: task was interrupted cleanly")
-})
-```
-
----
-
-## Interrupt output
-
-```
-Task: starting work...
-Task: step 1/5
-Task: step 2/5
-Main: sending interrupt...
-Task: interrupted! releasing connections...
-Main: task was interrupted cleanly
-```
-
-`onInterrupt` runs only on interruption -- use `ensuring` for all-exit cleanup.
-
----
-
-# 07 -- Scheduling & Retry
-
-`pnpm run 07` | `src/07-scheduling-retry/index.ts`
-
----
-
-## Composable retry strategies
-
-```typescript
-// Exponential backoff: 100ms -> 200ms -> 400ms -> 800ms
-const exponential = Schedule.exponential("100 millis")
-
-// Cap at 3 retries
-const maxRetries = Schedule.recurs(3)
-
-// Combine: exponential backoff AND max 3 retries
-const retrySchedule = Schedule.intersect(exponential, maxRetries)
-```
-
-Schedules are values. Compose them like data.
-
----
-
-## Conditional retry
-
-```typescript
-class ExternalServiceError extends Schema.TaggedError<ExternalServiceError>()(
-  "ExternalServiceError",
-  { message: Schema.String, retryable: Schema.Boolean }
-) {}
-
-const withRetry = flakyCall.pipe(
-  Effect.retry({
-    schedule: retrySchedule,
-    while: (e) => e.retryable,
-    // retryable: true  -> timeout, network error  -> retry
-    // retryable: false -> auth error, bad request  -> fail immediately
-  })
-)
-```
-
-Other combinators: `Schedule.union`, `Schedule.andThen`, `Schedule.jittered`
-
----
-
-# 08 -- Queues
-
-`pnpm run 08` | `src/08-queues-pubsub/index.ts`
-
----
-
-## Queue with backpressure
-
-```typescript
-const queue = yield* Queue.bounded<string>(3)
-
-yield* Queue.offer(queue, "task-1")
-yield* Queue.offer(queue, "task-2")
-yield* Queue.offer(queue, "task-3")
-// Queue.offer(queue, "task-4") would suspend until consumer takes
-```
-
-4 strategies: `bounded` (suspends), `dropping` (silent drop), `sliding` (drop oldest), `unbounded`
-
-Type-safe producer/consumer separation: `Queue.Enqueue<A>` (offer only), `Queue.Dequeue<A>` (take only)
-
----
-
-# 09 -- Telemetry
-
-`pnpm run 09` | `src/09-telemetry/index.ts`
-
----
-
-## Just `withSpan` + `annotateCurrentSpan`
+## Spans attach to the work
 
 ```typescript
 const processTask = (name: string) =>
@@ -502,115 +790,50 @@ const processTask = (name: string) =>
 
 ---
 
-## Complex trace tree -- zero extra boilerplate
-
-```
-processTaskBatch
-+-- loadConfig
-+-- connectDatabase
-+-- processTask["Write docs"]
-|   +-- validate
-|   +-- fetchDeps -> authenticate, queryAPI
-|   +-- persist
-+-- processTask["Fix bug"]
-|   +-- validate
-|   +-- fetchDeps -> authenticate, queryAPI
-|   +-- persist
-+-- notifyResults
-    +-- email + slack (concurrent)
-    +-- 3x /poll (concurrent)
-```
-
----
-
-## Try it: OTel in Docker
-
-```bash
-# 1. Start Grafana LGTM (auto-finds free port for Grafana UI)
-pnpm run docker:otel
-
-# 2. Run the telemetry demo (in another terminal)
-pnpm run 09
-
-# 3. Open the Grafana URL printed by docker:otel
-#    Explore (sidebar) -> data source: Tempo -> Search
-#    -> Service Name: effect-presentation -> Run query
-```
-
-OTel setup in code:
-```typescript
-const NodeSdkLive = NodeSdk.layer(() => ({
-  resource: { serviceName: "effect-presentation" },
-  spanProcessor: new BatchSpanProcessor(new OTLPTraceExporter()),
-}))
-// provide it to your program with Effect.provide(NodeSdkLive)
-```
-
----
-
-## What you see in Grafana
+## Visuals
 
 ![Grafana trace view](assets/grafana-trace.png)
 
 ---
 
-# 10 -- Standard Library
+## Runtime validation at the boundary
 
-
----
-
-## The TypeScript std we didn't have
-
-```typescript
-Option.fromNullable(map.get("key"))
-  .pipe(
-    Option.map((t) => t.title),
-    Option.getOrElse(() => "unknown")
-  )
-```
+`pnpm run 10`
 
 ---
 
-## Schema -- runtime validation + type inference
+## Runtime validation and static types
 
 ```typescript
 const TaskInput = Schema.Struct({
+  id: Schema.String,
   title: Schema.NonEmptyString,
   priority: Schema.Literal("low", "medium", "high"),
 })
+
 type TaskInput = typeof TaskInput.Type
-// { title: string; priority: "low" | "medium" | "high" }
 
 Schema.decodeUnknown(TaskInput)(userInput)
-// => Effect<TaskInput, ParseError>
+// Effect<TaskInput, ParseError>
 ```
+
+- runtime validation
+- inferred static type
+- error channel: `ParseError`
 
 ---
 
-## Config, Collections, Duration, and more
+## Takeaways
 
-```typescript
-// Typed env vars -- fail at startup, not at 3am
-const appConfig = Config.all({
-  port: Config.number("PORT"),
-  host: Config.string("HOST").pipe(Config.withDefault("localhost")),
-})
-
-// Collections
-Array.groupBy(tasks, (t) => t.status)
-// => Record<string, NonEmptyArray<Task>>
-
-// Duration
-Duration.decode("5 seconds")  // Duration
-Duration.toMillis(d)           // number
-```
-
-Also: Match, Order, Equal, Hash, Predicate, Struct
+1. failures in type
+2. external services behind contracts
+3. time/config/random/tracing/etc as dependencies
+4. coding agents compatibility and enhancement (parallel work, stronger harness)
 
 ---
 
 # Thanks
 
-All demos: `pnpm run 01` through `pnpm run 10`
-
 github.com/dearlordylord/effect-presentation-odeskconf
+
+https://www.dearlordylord.com/

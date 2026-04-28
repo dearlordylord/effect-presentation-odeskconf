@@ -18,6 +18,8 @@
     "09": "tsx src/09-telemetry/index.ts",
     "test": "vitest run",
     "test:watch": "vitest",
+    "bench:match": "tsx benchmarks/match.ts",
+    "bench": "pnpm run bench:match",
     "slides": "mkdir -p dist && marp --no-stdin --allow-local-files slides.md -o dist/index.html",
     "slides:watch": "marp slides.md -o slides.html --watch",
     "docker:otel": "./scripts/otel-docker.sh"
@@ -38,6 +40,7 @@
     "@opentelemetry/sdk-metrics": "^1.30.0",
     "@opentelemetry/sdk-trace-base": "^1.30.0",
     "@opentelemetry/sdk-trace-node": "^1.30.0",
-    "effect": "^3.19.19"
+    "effect": "^3.19.19",
+    "ts-pattern": "^5.9.0"
   }
 }
