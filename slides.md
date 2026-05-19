@@ -83,11 +83,35 @@ style: |
     height: 42px;
     object-fit: contain;
   }
+  .stdlib-assets {
+    position: absolute;
+    left: 70px;
+    right: 70px;
+    bottom: 48px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 1.2rem;
+  }
+  .stdlib-assets img {
+    height: 76px;
+    object-fit: contain;
+  }
+  .thanks-citation {
+    margin-top: 2.2rem;
+    max-width: 920px;
+    color: #f9e2af;
+    font-size: 0.86em;
+    line-height: 1.45;
+  }
+  .thanks-citation span {
+    color: #a6adc8;
+    font-size: 0.82em;
+  }
 ---
 
 <div class="intro">
   <h1>Igor Loskutov</h1>
-  <p class="intro-subtitle">software design enthusiast</p>
   <div class="intro-links">
     <a class="intro-link" href="https://github.com/dearlordylord">
       <img src="assets/igor-avatar.png" class="intro-avatar" />
@@ -110,8 +134,14 @@ style: |
 - dependency injection
 - structured concurrency
 - resource management
+- packs the best codecs (think "Zod") library out there
 - numerous other QOL features
 - all that composable with each other
+
+<div class="stdlib-assets">
+  <img src="assets/dls.png" alt="DLS" />
+  <img src="assets/stars.png" alt="Stars" />
+</div>
 
 ---
 
@@ -123,10 +153,10 @@ style: |
 - typically runs at program edge
 
 ```typescript
-Effect.runPromise(program)
+await Effect.runPromise(program)
 ```
 
-- can be seen as `(rs: Requirements) => Promise<() => {error: Error} | {success: Success}>`
+- (Effect type) can be seen as `(rs: Requirements) => Promise<() => {error: Error} | {success: Success}>`
 
 ---
 
@@ -156,11 +186,11 @@ Effect:
 ```typescript
 firstIssueTitle:
   (projectId: ProjectId) =>
-    Effect<string, HttpClientError | ParseError | NoIssuesFound, HttpClient>
+    Effect<NonEmptyString, HttpClientError | ParseError | NoIssuesFound, HttpClient>
 ```
 
 - `Promise<string>`: success shape only
-- `Effect<string, HttpClientError | ParseError | NoIssuesFound, HttpClient>`: success + failure + requirement
+- `Effect<NonEmptyString, HttpClientError | ParseError | NoIssuesFound, HttpClient>`: success + failure + requirement
 
 ---
 
@@ -197,9 +227,10 @@ Schema.decodeUnknown(TaskInput)(userInput)
 // Effect<TaskInput, ParseError>
 ```
 
-- validates unknown input
 - inferred static type
 - error channel: `ParseError`
+- isomorphic
+- effect independent (`decodeUnknownEither`)
 
 ---
 
@@ -211,7 +242,7 @@ type ProjectId = typeof ProjectId.Type
 
 const ProjectIssues = Schema.Struct({
   items: Schema.Array(Schema.Struct({
-    title: Schema.String,
+    title: Schema.NonEmptyString,
   })),
 })
 
@@ -229,10 +260,10 @@ class NoIssuesFound extends Schema.TaggedError<NoIssuesFound>()(
 const firstIssueTitle =
   (projectId: ProjectId) =>
     Effect.gen(function* () {
-      const response =
-        yield* HttpClient.get(`/projects/${projectId}/issues`)
+      const client = (yield* HttpClient.HttpClient).pipe(HttpClient.filterStatusOk)
 
-      yield* HttpClientResponse.filterStatusOk(response)
+      const response =
+        yield* client.get(`/projects/${projectId}/issues`)
 
       const data =
         yield* HttpClientResponse.schemaBodyJson(ProjectIssues)(response)
@@ -243,7 +274,7 @@ const firstIssueTitle =
       return first.title
     })
 
-// Effect<string, HttpClientError | ParseError | NoIssuesFound, HttpClient>
+// Effect<NonEmptyString, HttpClientError | ParseError | NoIssuesFound, HttpClient>
 ```
 
 ---
@@ -273,6 +304,7 @@ async function startTask(id: string): Promise<Task> {
 - visible: `Promise<Task>`
 - hidden: `not found`
 - hidden: `bad status`
+- hidden: db errors
 
 ---
 
@@ -280,11 +312,11 @@ async function startTask(id: string): Promise<Task> {
 
 ```typescript
 fetchTask:
-  (id: string) => Effect<Task, TaskNotFoundError>
+  (id: TaskId) => Effect<Task, TaskNotFoundError | DbError>
 
 startTask:
-  (id: string) =>
-    Effect<Task, TaskNotFoundError | InvalidStatusError>
+  (id: TaskId) =>
+    Effect<Task, TaskNotFoundError | InvalidStatusError | DbError>
 ```
 
 ---
@@ -309,15 +341,15 @@ class TaskNotFoundError extends Schema.TaggedError<TaskNotFoundError>()(
 ```typescript
 const result = yield* startTask("missing").pipe(
   Effect.catchTag("TaskNotFoundError", (e) =>
-    createTask({ id: e.id, title: "Untitled" })
+    createTask({ title: "Untitled" })
   )
 )
 
-// Before: Effect<Task, TaskNotFoundError | InvalidStatusError>
-// After:  Effect<Task, InvalidStatusError>
+// Before: Effect<Task, TaskNotFoundError | InvalidStatusError | DbError>
+// After:  Effect<Task, InvalidStatusError | DbError>
 ```
 
-- remaining error: `InvalidStatusError`
+- remaining errors: `InvalidStatusError | DbError`
 
 ---
 
@@ -349,10 +381,10 @@ class TaskRepository extends Context.Tag("TaskRepository")<
   TaskRepository,
   {
     readonly fetchById:
-      (id: TaskId) => Effect<Task, TaskNotFoundError>
+      (id: TaskId) => Effect<Task, TaskNotFoundError | DbError>
     readonly updateStatus:
       (id: TaskId, status: TaskStatus) =>
-        Effect<Task, TaskNotFoundError>
+        Effect<Task, TaskNotFoundError | DbError>
   }
 >() {}
 ```
@@ -365,7 +397,7 @@ class TaskRepository extends Context.Tag("TaskRepository")<
 
 ```typescript
 const startTask = (id: TaskId) =>
-  // Effect<Task, TaskNotFoundError | InvalidStatusError, TaskRepository>
+  // Effect<Task, TaskNotFoundError | InvalidStatusError | DbError, TaskRepository>
   Effect.gen(function* () {
     const repo = yield* TaskRepository
     const task = yield* repo.fetchById(id)
@@ -847,3 +879,8 @@ ingestBatch:
 - [effect.website/docs](https://effect.website/docs)
 - [effect.solutions](https://www.effect.solutions/)
 - [youtube.com/@effect-ts](https://www.youtube.com/@effect-ts)
+
+<div class="thanks-citation">
+  "The line of code has never been cheaper to produce, but producing a correct line has become more expensive"<br />
+  <span>(c) somebody on Twitter</span>
+</div>
