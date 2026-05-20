@@ -697,6 +697,12 @@ const withRetry = flakyCall.pipe(
 ## Spans attach to the work
 
 ```typescript
+const op = (name: string, millis: number) =>
+  Effect.log(name).pipe(
+    Effect.delay(Duration.millis(millis)),
+    Effect.withSpan(name)
+  )
+
 const processTask = (name: string) =>
   Effect.gen(function* () {
     yield* Effect.annotateCurrentSpan("task.name", name)
