@@ -83,20 +83,6 @@ style: |
     height: 42px;
     object-fit: contain;
   }
-  .stdlib-assets {
-    position: absolute;
-    left: 70px;
-    right: 70px;
-    bottom: 48px;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    gap: 1.2rem;
-  }
-  .stdlib-assets img {
-    height: 76px;
-    object-fit: contain;
-  }
   .thanks-citation {
     margin-top: 2.2rem;
     max-width: 920px;
@@ -137,11 +123,7 @@ style: |
 - packs the best codecs (think "Zod") library out there
 - numerous other QOL features
 - all that composable with each other
-
-<div class="stdlib-assets">
-  <img src="assets/dls.png" alt="DLS" />
-  <img src="assets/stars.png" alt="Stars" />
-</div>
+- active community acceptance
 
 ---
 
