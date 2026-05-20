@@ -343,8 +343,7 @@ const result = yield* startTask("missing").pipe(
 
 ## The pain
 
-- start a database
-- seed it in the correct order
+- start and seed a database
 - configure a fake API key
 - avoid conflicting ports
 - clean up after a failed run
