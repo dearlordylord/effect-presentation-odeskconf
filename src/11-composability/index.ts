@@ -36,7 +36,7 @@ import { Effect } from "effect"
 //
 // --- Schedules compose ---
 //
-//   Schedule.intersect(Schedule.exponential("100 millis"), Schedule.recurs(3))
+//   Schedule.intersect(Schedule.exponential(Duration.millis(100)), Schedule.recurs(3))
 //   // Exponential backoff AND max 3 retries — both are values, both compose.
 //
 // --- The key insight ---

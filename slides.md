@@ -672,7 +672,7 @@ const results = yield* Effect.all(
 
 ```typescript
 const retrySchedule = Schedule.intersect(
-  Schedule.exponential("100 millis"),
+  Schedule.exponential(Duration.millis(100)),
   Schedule.recurs(3)
 )
 

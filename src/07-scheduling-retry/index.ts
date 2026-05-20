@@ -1,4 +1,4 @@
-import { Effect, Schedule, Schema } from "effect"
+import { Duration, Effect, Schedule, Schema } from "effect"
 
 // --- Schedule combinators: composable retry/repeat strategies ---
 // Directly from our Huly MCP codebase (auth-utils.ts)
@@ -11,7 +11,7 @@ class ExternalServiceError extends Schema.TaggedError<ExternalServiceError>()(
 // --- Build complex schedules from simple primitives ---
 
 // Exponential backoff: 100ms → 200ms → 400ms → 800ms
-const exponential = Schedule.exponential("100 millis")
+const exponential = Schedule.exponential(Duration.millis(100))
 
 // Cap at 3 retries (4 total attempts)
 const maxRetries = Schedule.recurs(3)
