@@ -648,27 +648,6 @@ const main = Effect.scoped(
 
 ---
 
-## Interruption and scoped finalizers
-
-```typescript
-const longTask = Effect.gen(function* () {
-  for (let i = 1; i <= 5; i++) {
-    yield* Effect.log(`Task: step ${i}/5`)
-    yield* Effect.sleep("300 millis")
-  }
-}).pipe(
-  Effect.onInterrupt(() =>
-    Effect.log("Task: interrupted! releasing connections...")
-  )
-)
-```
-
-- cooperative interruption
-- interrupt handlers run on interruption
-- scoped resources release through scopes
-
----
-
 ## Bounded parallelism
 
 ```typescript
